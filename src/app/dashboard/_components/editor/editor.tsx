@@ -23,55 +23,72 @@ export default function Editor({ currentNote, setCurrentNote, workspaceId }: { c
     const notesContainerDivRef = useRef<HTMLDivElement>(null);
     const [saveData, setSaveData] = useState<string>("");
 
+    const setCursorLastNode = () => {
+        if (notesContainerDivRef.current) {
+            const range = document.createRange();
+            const sel = window.getSelection();
+            const nodes = Array.from(notesContainerDivRef.current.childNodes);
+            let lastTextNode = null;
 
-    const setAsTitle = () => {
-        let innerText = notesContainerDivRef.current?.innerText;
-
-        if (innerText?.match(/## (.*)$/gm)) {
-            // Replace lines starting with "## " with bold version, handling potential HTML 
-            if (notesContainerDivRef.current?.innerText && innerText) {
-                const tempContainer = document.createElement('div'); // Create a temporary container
-                tempContainer.innerText = innerText;
-
-                Array.from(tempContainer.childNodes).forEach(child => {
-                    if (child.nodeType === Node.TEXT_NODE && child.textContent?.startsWith('## ')) {
-                        let strongNode = document.createElement('strong');
-                        strongNode.style.fontSize = "20px"
-                        strongNode.textContent = child.textContent.slice(3);
-                        child.replaceWith(strongNode);
-                    }
-                });
-
-                notesContainerDivRef.current.innerHTML = tempContainer.innerHTML;
-                if (notesContainerDivRef.current) {
-                    const range = document.createRange();
-                    const sel = window.getSelection();
-                    const nodes = Array.from(notesContainerDivRef.current.childNodes);
-                    let lastTextNode = null;
-
-                    for (let i = nodes.length - 1; i >= 0; i--) {
-                        if (nodes[i].nodeType === Node.TEXT_NODE) {
-                            lastTextNode = nodes[i];
-                            break;
-                        }
-                    }
-
-                    if (lastTextNode) {
-                        if (lastTextNode.nodeValue)
-                            range.setStart(lastTextNode, lastTextNode.nodeValue.length);
-                        range.collapse(true);
-                        sel?.removeAllRanges();
-                        sel?.addRange(range);
-                    }
-
-                    notesContainerDivRef.current.focus();
+            for (let i = nodes.length - 1; i >= 0; i--) {
+                if (nodes[i].nodeType === Node.TEXT_NODE) {
+                    lastTextNode = nodes[i];
+                    break;
                 }
             }
+
+            if (lastTextNode) {
+                if (lastTextNode.nodeValue)
+                    range.setStart(lastTextNode, lastTextNode.nodeValue.length);
+                range.collapse(true);
+                sel?.removeAllRanges();
+                sel?.addRange(range);
+            }
+
+            notesContainerDivRef.current.focus();
         }
+    }
+
+    const setAsTitle = ({
+        innerText,
+        tempContainer,
+        childNodes
+    }: {
+        innerText: string | undefined,
+        tempContainer: HTMLDivElement
+        childNodes: ChildNode[],
+
+    }) => {
+        if (innerText?.match(/# ([\s\S]*?)(?=\n\n|$)/gm)) {
+            // Replace lines starting with "## " with bold version, handling potential HTML 
+            if (notesContainerDivRef.current?.innerText) {
+
+                for (const child of childNodes) {
+                    if (child.nodeType === Node.TEXT_NODE && child.textContent?.startsWith('# ')) {
+                        let strongNode = document.createElement('strong');
+                        strongNode.style.fontSize = "2rem"
+                        strongNode.textContent = child.textContent.slice(2);
+                        child.replaceWith(strongNode);
+                    }
+                };
+
+                notesContainerDivRef.current.innerHTML = tempContainer.innerHTML;
+
+            }
+        }
+
     }
 
     const handleOnInput = (event: FormEvent<HTMLDivElement>) => {
         setSaveData(event.currentTarget.innerText)
+        let innerText = notesContainerDivRef.current?.innerText
+        let tempContainer = document.createElement("div");
+        if (innerText)
+            tempContainer.innerText = innerText;
+
+        let childNodes = Array.from(tempContainer.childNodes)
+
+        setAsTitle({ innerText: innerText, tempContainer: tempContainer, childNodes });
     }
 
     const handleDeleteNote = () => {
@@ -89,6 +106,10 @@ export default function Editor({ currentNote, setCurrentNote, workspaceId }: { c
             })
         })
     }
+
+    // const handleRenameNote = () => {
+
+    // }
 
     // set saved data on startup
     useEffect(() => {
@@ -140,17 +161,18 @@ export default function Editor({ currentNote, setCurrentNote, workspaceId }: { c
 
             //     }
             // }
-
         }
 
     }, [saveData]);
 
 
     return (
-        <div className='fixed z-0 h-full w-full bg-accent p-4 pl-9'
+        <div className={cn('fixed z-0 h-full w-full bg-accent p-4 pl-9',
+            notesContainerDivRef.current?.innerText && notesContainerDivRef.current?.innerText.length > 500 && "overflow-auto"
+        )}
 
         >
-            <div className='flex h-fit w-full flex-row justify-start rounded-sm bg-sec p-2 drop-shadow-sm'>
+            <div className='flex h-fit w-full flex-row justify-start rounded-sm bg-quat p-2 outline outline-quat drop-shadow-sm'>
                 <h1 className='text-3xl font-bold'>{currentNote.title}</h1>
                 <menu>
                     <li className={cn('ml-0.5 cursor-pointer rounded-sm p-0.5 hover:bg-red-500 hover:text-white',
@@ -158,7 +180,7 @@ export default function Editor({ currentNote, setCurrentNote, workspaceId }: { c
                     )}>
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
-                                <Trash2 size={20} />
+                                <Trash2 size={20} className='drop-shadow-md' />
                             </AlertDialogTrigger>
                             <AlertDialogContent className='rounded-sm'>
                                 <AlertDialogHeader>

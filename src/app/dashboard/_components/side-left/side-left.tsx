@@ -8,9 +8,11 @@ import { invoke } from '@tauri-apps/api/core';
 import { Separator } from '@/components/ui/separator';
 import NoteSection from './note-section';
 import { Note } from '../../dashboard';
+import { useRouter } from 'next/navigation';
 
 export default function SideLeft({ currentNote, setCurrentNote }: { currentNote: string | undefined, setCurrentNote: (value: Note) => void }) {
     const [currentWorkspace, setCurrentWorkspace] = useState<string>("");
+    let router = useRouter();
     const [isDragging, setIsDragging] = useState(false);
     const [isHovering, setIsHovering] = useState(false);
     const controls = useDragControls();
@@ -43,12 +45,6 @@ export default function SideLeft({ currentNote, setCurrentNote }: { currentNote:
         updateUserWorkspace();
     }, [updateUserWorkspace])
 
-    useEffect(() => {
-
-
-
-    }, [currentNote]);
-
 
 
     return (
@@ -57,6 +53,7 @@ export default function SideLeft({ currentNote, setCurrentNote }: { currentNote:
         )}
             onMouseLeave={() => { setIsDragging(false); setIsHovering(false); }}
             initial={{ x: -226 }}
+            exit={{ x: -226 }}
             drag="x"
             dragConstraints={{ left: -225.5, right: -40 }}
             dragElastic={0.02}
