@@ -8,9 +8,10 @@ import Editor from './_components/editor/editor';
 export interface Note {
     id: string;
     title: string;
+    workspace_id: string;
+    save_data: string;
     created_at: string;
     updated_at: string;
-    workspace_id: string;
 }
 
 export interface User {
@@ -31,7 +32,7 @@ export default function Dashboard() {
         invoke("get_user").then((res) => {
             let user: User[] = JSON.parse(res as string)
             //console.log(user[0])
-            if (user)
+            if (user && user[0].current_note !== "none")
                 invoke("get_note_by_title", { currentNote: user[0].current_note }).then((res) => {
                     let note: Note = JSON.parse(res as string);
                     //console.log(note)

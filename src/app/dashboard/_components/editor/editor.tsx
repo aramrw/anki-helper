@@ -1,44 +1,126 @@
 "use client"
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { FormEvent, useEffect, useRef, useState } from 'react'
 import { Note } from '../../dashboard'
 import { Bold, Italic, Strikethrough, Underline } from 'lucide-react';
-import { stdout } from 'process';
-import { clearInterval } from 'timers';
+import { invoke } from '@tauri-apps/api/core';
 
 export default function Editor({ currentNote }: { currentNote: Note }) {
 
-    const [lines, setLines] = useState<string[]>([""]);
-    const mainContainerDivRef = useRef<HTMLDivElement>(null);
-    const divRefs = lines.map(() => React.createRef<HTMLDivElement>());
+    const notesContainerDivRef = useRef<HTMLDivElement>(null);
 
-    const parseText = (event: React.FormEvent<HTMLDivElement>) => {
-        //setLines(event.currentTarget.textContent?.split('\n') || []);
-    }
+    const [saveData, setSaveData] = useState<string>("");
 
-    useEffect(() => {
-        if (divRefs[0] && divRefs.length === 1) {
-            divRefs[0].current?.focus();
-        } else {
-            while (divRefs.length < lines.length) {
-                divRefs.push(React.createRef<HTMLDivElement>());
+    const setAsTitle = () => {
+        let innerText = notesContainerDivRef.current?.innerText;
+
+        if (innerText?.match(/## (.*)$/gm)) {
+            // Replace lines starting with "## " with bold version, handling potential HTML 
+            if (notesContainerDivRef.current?.innerText && innerText) {
+                const tempContainer = document.createElement('div'); // Create a temporary container
+                tempContainer.innerText = innerText;
+
+                Array.from(tempContainer.childNodes).forEach(child => {
+                    if (child.nodeType === Node.TEXT_NODE && child.textContent?.startsWith('## ')) {
+                        let strongNode = document.createElement('strong');
+                        strongNode.style.fontSize = "20px"
+                        strongNode.textContent = child.textContent.slice(3);
+                        child.replaceWith(strongNode);
+                    }
+                });
+
+                notesContainerDivRef.current.innerHTML = tempContainer.innerHTML;
+                if (notesContainerDivRef.current) {
+                    const range = document.createRange();
+                    const sel = window.getSelection();
+                    const nodes = Array.from(notesContainerDivRef.current.childNodes);
+                    let lastTextNode = null;
+
+                    for (let i = nodes.length - 1; i >= 0; i--) {
+                        if (nodes[i].nodeType === Node.TEXT_NODE) {
+                            lastTextNode = nodes[i];
+                            break;
+                        }
+                    }
+
+                    if (lastTextNode) {
+                        if (lastTextNode.nodeValue)
+                            range.setStart(lastTextNode, lastTextNode.nodeValue.length);
+                        range.collapse(true);
+                        sel?.removeAllRanges();
+                        sel?.addRange(range);
+                    }
+
+                    notesContainerDivRef.current.focus();
+                }
             }
         }
+    }
 
-    }, [lines]);
+    const handleOnInput = (event: FormEvent<HTMLDivElement>) => {
+        setSaveData(event.currentTarget.innerText)
+    }
+
+    // set saved data on startup
+    useEffect(() => {
+        if (currentNote.save_data)
+            invoke("get_note_save_data", { id: currentNote.id }).then((res) => {
+
+                let json: Note = JSON.parse(res as string)
+                let saveData = json.save_data;
+                if (notesContainerDivRef.current) {
+                    notesContainerDivRef.current.innerText = saveData;
+                }
+
+                let innerText = notesContainerDivRef.current?.innerText;
+
+                // Replace lines starting with "## " with bold version, handling potential HTML 
+                if (notesContainerDivRef.current?.innerText && innerText) {
+                    const tempContainer = document.createElement('div'); // Create a temporary container
+                    tempContainer.innerText = innerText;
+
+                    Array.from(tempContainer.childNodes).forEach(child => {
+                        if (child.nodeType === Node.TEXT_NODE && child.textContent?.startsWith('## ')) {
+                            let strongNode = document.createElement('strong');
+                            strongNode.textContent = child.textContent.slice(3);
+                            child.replaceWith(strongNode);
+                        }
+                    });
+
+                    notesContainerDivRef.current.innerHTML = tempContainer.innerHTML;
+                }
+
+
+            })
+    }, [currentNote]);
 
     useEffect(() => {
-        console.log(lines)
-    }, [lines]);
+        console.log(saveData)
+        if (saveData) {
+            invoke("save_notes", { data: saveData, currentNoteId: currentNote.id });
+            let splitLines = saveData.split("\n");
+            console.log(splitLines)
+            // for (let i = 0; i < splitLines.length; i++) {
+            //     if (splitLines[i].includes("##")) {
+
+            //     }
+            // }
+
+
+
+        }
+
+    }, [saveData]);
+
 
     return (
         <div className='fixed z-0 h-full w-full bg-accent p-4 pl-9'
-            ref={mainContainerDivRef}
+
         >
             <div className='h-fit w-full rounded-sm bg-sec p-2 drop-shadow-sm'>
                 <h1 className='text-3xl font-bold'>{currentNote.title}</h1>
             </div>
-            <menu className='mt-4 flex h-8 w-full flex-row items-center justify-start gap-0.5 rounded-t-sm bg-tert p-1 drop-shadow-md'>
+            <menu className='mt-4 flex h-8 w-full flex-row items-center justify-start gap-0.5 rounded-t-sm border-b-2 border-quat bg-tert p-1 drop-shadow-md'>
                 <li className='cursor-pointer rounded-sm p-0.5 hover:bg-quat'>
                     <Bold size={17} strokeWidth={3.1} />
                 </li>
@@ -53,35 +135,10 @@ export default function Editor({ currentNote }: { currentNote: Note }) {
                 </li>
             </menu>
             <div className='h-full w-full bg-background drop-shadow-lg' >
-                {lines.map((line, index) => (
-                    <div contentEditable id="text-editor" className='h-fit w-full px-4 outline-none' key={index} ref={divRefs[index]} onInput={(event) => {
-                        event.preventDefault();
-                        if (event?.currentTarget.textContent) {
-                            let array = [...lines]
-                            array.splice(index + 1, 1, event?.currentTarget.textContent)
-                            setLines(array)
-                        }
-                    }} onKeyDown={(event) => {
-                        let array = [...lines];
-                        if (event.key === "Enter" && event.currentTarget.textContent) {
-                            event.preventDefault();
-                            array.push(event.currentTarget.textContent)
-                            setLines(array)
-                            if (divRefs[index + 1]) {
-                                divRefs[index + 1].current?.focus();
-                            }
-                        } else if (event.key === "Backspace" && event.currentTarget.textContent === undefined || event.key === "Backspace" && event.currentTarget.textContent?.length == 0) {
-                            if (index !== 0) {
-                                event.preventDefault();
-                                array.splice(index, 1);
-                                setLines(array)
-                                if (divRefs[index - 1]) {
-                                    divRefs[index - 1].current?.focus();
-                                }
-                            }
-                        }
-                    }} />
-                ))}
+                <div contentEditable className='inline-block h-full w-full px-5 py-4 outline-none'
+                    onInput={handleOnInput} ref={notesContainerDivRef} >
+
+                </div>
             </div>
         </div>
     )

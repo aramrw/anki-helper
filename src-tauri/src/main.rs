@@ -1,7 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::future::IntoFuture;
+use std::{future::IntoFuture, vec};
 
 use serde_json::to_string_pretty;
 use tauri::generate_handler;
@@ -42,6 +42,7 @@ struct Workspace {
 struct Note {
     id: String,
     title: String,
+    save_data: String,
     created_at: String,
     updated_at: String,
     workspace_id: String,
@@ -86,6 +87,8 @@ fn main() {
             create_note,
             get_notes,
             get_note_by_title,
+            save_notes,
+            get_note_save_data
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -217,9 +220,10 @@ async fn get_notes(handle: AppHandle, workspace_id: &str) -> Result<String, Data
         notes.push(Note {
             id: row.get(0),
             title: row.get(1),
-            created_at: row.get(2),
-            updated_at: row.get(3),
-            workspace_id: row.get(4),
+            workspace_id: row.get(2),
+            save_data: row.get(3),
+            created_at: row.get(4),
+            updated_at: row.get(5),
         })
     });
 
@@ -247,9 +251,10 @@ async fn get_note_by_title(
         notes.push(Note {
             id: row.get(0),
             title: row.get(1),
-            created_at: row.get(2),
-            updated_at: row.get(3),
-            workspace_id: row.get(4),
+            save_data: row.get(2),
+            created_at: row.get(3),
+            updated_at: row.get(4),
+            workspace_id: row.get(5),
         })
     });
 
@@ -272,6 +277,53 @@ async fn update_user_note(handle: AppHandle, title: &str) -> Result<(), Database
     Ok(())
 }
 
+#[command]
+async fn get_note_save_data(handle: AppHandle, id: &str) -> Result<String, DatabaseErrors> {
+    let pool_mutex = handle.state::<Mutex<SqlitePool>>().clone();
+    let pool = pool_mutex.lock().into_future().await;
+
+    let row = sqlx::query("SELECT * FROM note WHERE id = ?")
+        .bind(id)
+        .fetch_one(&*pool)
+        .await
+        .unwrap();
+
+    let note = Note {
+        id: row.get(0),
+        title: row.get(1),
+        workspace_id: row.get(2),
+        save_data: row.get(3),
+        created_at: row.get(4),
+        updated_at: row.get(5),
+    };
+
+    let json_result = to_string_pretty(&note).unwrap();
+
+    Ok(json_result)
+}
+
+#[command]
+async fn save_notes(
+    handle: AppHandle,
+    data: &str,
+    current_note_id: &str,
+) -> Result<String, DatabaseErrors> {
+    let pool_mutex = handle.state::<Mutex<SqlitePool>>().clone();
+    let pool = pool_mutex.lock().into_future().await;
+
+    // let json_data = to_string_pretty(&data).unwrap();
+
+    // println!("{}", &json_data);
+
+    sqlx::query("UPDATE note SET saveData = ?, updatedAt = datetime('now') WHERE id = ?")
+        .bind(&data)
+        .bind(current_note_id)
+        .execute(&*pool)
+        .await
+        .unwrap();
+
+    Ok(data.to_string())
+}
 // user
 #[command]
 async fn get_user(handle: AppHandle) -> Result<String, DatabaseErrors> {
@@ -322,7 +374,7 @@ fn create_database(path: &str, handle: AppHandle) {
             sqlx::query("CREATE TABLE IF NOT EXISTS workspace (id TEXT PRIMARY KEY UNIQUE, title TEXT, createdAt TEXT, updatedAt TEXT)")
             .execute(&pool).await.unwrap();
 
-            sqlx::query("CREATE TABLE IF NOT EXISTS note (id TEXT PRIMARY KEY UNIQUE, title TEXT, workspaceId TEXT, createdAt TEXT, updatedAt TEXT, FOREIGN KEY (workspaceId) REFERENCES workspace(id))")
+            sqlx::query("CREATE TABLE IF NOT EXISTS note (id TEXT PRIMARY KEY UNIQUE, title TEXT, workspaceId TEXT, saveData, createdAt TEXT, updatedAt TEXT, FOREIGN KEY (workspaceId) REFERENCES workspace(id))")
             .execute(&pool).await.unwrap();
 
             create_user_if_null(handle).await.unwrap();
