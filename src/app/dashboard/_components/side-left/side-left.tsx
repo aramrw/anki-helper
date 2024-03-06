@@ -15,6 +15,10 @@ export default function SideLeft({ currentNote, setCurrentNote }: { currentNote:
     const [isHovering, setIsHovering] = useState(false);
     const controls = useDragControls();
 
+    const useSetCurrentWorkspaceHook = (currentWorkspace: string) => {
+        setCurrentWorkspace(currentWorkspace);
+    }
+
     useEffect(() => {
         // user has a `currentWorkspace` column 
         if (currentWorkspace === "none") return;
@@ -39,9 +43,13 @@ export default function SideLeft({ currentNote, setCurrentNote }: { currentNote:
         updateUserWorkspace();
     }, [updateUserWorkspace])
 
-    const useSetCurrentWorkspaceHook = (currentWorkspace: string) => {
-        setCurrentWorkspace(currentWorkspace);
-    }
+    useEffect(() => {
+
+
+
+    }, [currentNote]);
+
+
 
     return (
         <motion.section className={cn('z-10 w-auto ml-10 pl-3.5 flex h-full flex-row-reverse bg-background shadow-md border-r-2 border-sec',

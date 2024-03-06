@@ -22,11 +22,20 @@ export interface User {
     updated_at: string;
 }
 
+interface Workspace {
+    title: string;
+    id: number;
+    createdAt: string;
+    updatedAt: string;
+}
+
 export default function Dashboard() {
     const [currentNote, setCurrentNote] = useState<Note>();
+    const [currentWorkspace, setCurrentWorkspace] = useState<Workspace>();
     const useSetCurrentNoteHook = (currentNote: Note) => {
         setCurrentNote(currentNote)
     }
+
 
     useEffect(() => {
         invoke("get_user").then((res) => {
@@ -39,19 +48,22 @@ export default function Dashboard() {
                     setCurrentNote(note);
                 }).catch((e) => {
                     console.log(e);
+                }).finally(() => {
+                    invoke("get_workspace_by_title", { currentWorkspace: user[0].current_workspace }).
+                        then((res) => {
+                            //console.log(res)
+                            let json: Workspace = JSON.parse(res as string);
+                            setCurrentWorkspace(json)
+                        })
                 })
         })
     }, []);
-
-    useEffect(() => {
-        console.log("current note:", currentNote)
-    }, [currentNote])
 
     return (
         <main className='flex h-screen w-full flex-row'>
             <SideLeft setCurrentNote={useSetCurrentNoteHook} currentNote={currentNote?.title} />
             {currentNote && (
-                <Editor currentNote={currentNote} />
+                <Editor currentNote={currentNote} workspaceId={currentWorkspace?.id.toString()} setCurrentNote={useSetCurrentNoteHook} />
             )}
         </main>
     )

@@ -2,14 +2,27 @@
 
 import React, { FormEvent, useEffect, useRef, useState } from 'react'
 import { Note } from '../../dashboard'
-import { Bold, Italic, Strikethrough, Underline } from 'lucide-react';
+import { Bold, Italic, Strikethrough, Trash2, Underline } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { useRouter } from 'next/navigation';
+import { cn } from '@/lib/utils';
 
-export default function Editor({ currentNote }: { currentNote: Note }) {
-
+export default function Editor({ currentNote, setCurrentNote, workspaceId }: { currentNote: Note, setCurrentNote: (currentNote: Note) => void, workspaceId: string | undefined }) {
+    let router = useRouter();
     const notesContainerDivRef = useRef<HTMLDivElement>(null);
-
     const [saveData, setSaveData] = useState<string>("");
+
 
     const setAsTitle = () => {
         let innerText = notesContainerDivRef.current?.innerText;
@@ -61,13 +74,29 @@ export default function Editor({ currentNote }: { currentNote: Note }) {
         setSaveData(event.currentTarget.innerText)
     }
 
+    const handleDeleteNote = () => {
+        invoke("delete_note", { currentNoteId: currentNote.id }).then(() => {
+            console.log(workspaceId)
+            invoke("get_notes", { workspaceId: workspaceId }).then((res) => {
+                const parsedNotes = JSON.parse(res as string);
+                if (parsedNotes.length > 0) {
+                    //console.log(parsedNotes[0])
+                    invoke("update_user_note", { title: parsedNotes[0].title as Note }).then(() => setCurrentNote(parsedNotes[0] as Note))
+                } else {
+                    invoke("update_user_note", { title: "none" }).then(() => setCurrentNote(parsedNotes[0] as Note))
+                    router.refresh();
+                }
+            })
+        })
+    }
+
     // set saved data on startup
     useEffect(() => {
-        if (currentNote.save_data)
+        if (currentNote.save_data) {
             invoke("get_note_save_data", { id: currentNote.id }).then((res) => {
-
                 let json: Note = JSON.parse(res as string)
                 let saveData = json.save_data;
+                console.log(saveData)
                 if (notesContainerDivRef.current) {
                     notesContainerDivRef.current.innerText = saveData;
                 }
@@ -75,23 +104,29 @@ export default function Editor({ currentNote }: { currentNote: Note }) {
                 let innerText = notesContainerDivRef.current?.innerText;
 
                 // Replace lines starting with "## " with bold version, handling potential HTML 
-                if (notesContainerDivRef.current?.innerText && innerText) {
-                    const tempContainer = document.createElement('div'); // Create a temporary container
-                    tempContainer.innerText = innerText;
+                // if (notesContainerDivRef.current?.innerText && innerText) {
+                //     const tempContainer = document.createElement('div'); // Create a temporary container
+                //     tempContainer.innerText = innerText;
 
-                    Array.from(tempContainer.childNodes).forEach(child => {
-                        if (child.nodeType === Node.TEXT_NODE && child.textContent?.startsWith('## ')) {
-                            let strongNode = document.createElement('strong');
-                            strongNode.textContent = child.textContent.slice(3);
-                            child.replaceWith(strongNode);
-                        }
-                    });
+                //     Array.from(tempContainer.childNodes).forEach(child => {
+                //         if (child.nodeType === Node.TEXT_NODE && child.textContent?.startsWith('## ')) {
+                //             let strongNode = document.createElement('strong');
+                //             strongNode.textContent = child.textContent.slice(3);
+                //             child.replaceWith(strongNode);
+                //         }
+                //     });
 
-                    notesContainerDivRef.current.innerHTML = tempContainer.innerHTML;
-                }
+                //     notesContainerDivRef.current.innerHTML = tempContainer.innerHTML;
+                // }
 
 
             })
+        } else {
+            if (notesContainerDivRef.current) {
+                notesContainerDivRef.current.innerText = "";
+            }
+        }
+
     }, [currentNote]);
 
     useEffect(() => {
@@ -106,8 +141,6 @@ export default function Editor({ currentNote }: { currentNote: Note }) {
             //     }
             // }
 
-
-
         }
 
     }, [saveData]);
@@ -117,8 +150,42 @@ export default function Editor({ currentNote }: { currentNote: Note }) {
         <div className='fixed z-0 h-full w-full bg-accent p-4 pl-9'
 
         >
-            <div className='h-fit w-full rounded-sm bg-sec p-2 drop-shadow-sm'>
+            <div className='flex h-fit w-full flex-row justify-start rounded-sm bg-sec p-2 drop-shadow-sm'>
                 <h1 className='text-3xl font-bold'>{currentNote.title}</h1>
+                <menu>
+                    <li className={cn('ml-0.5 cursor-pointer rounded-sm p-0.5 hover:bg-red-500 hover:text-white',
+
+                    )}>
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Trash2 size={20} />
+                            </AlertDialogTrigger>
+                            <AlertDialogContent className='rounded-sm'>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle className='text-xl'>Are you sure?</AlertDialogTitle>
+                                    <AlertDialogDescription className='text-base'>
+                                        <span>
+                                            This action <u>cannot be undone.</u>
+                                        </span>
+                                        <br />
+                                        <span>
+                                            You will lose any content in <b className='rounded-sm bg-muted px-0.5 text-foreground'>{currentNote.title}</b> <b className='font-bold text-destructive'>forever.</b>
+                                        </span>
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel className='text-base'>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction className='duration-400 flex flex-row gap-1 bg-destructive text-base text-background outline outline-input transition-opacity hover:opacity-80'
+
+                                        onClick={handleDeleteNote}
+                                    >
+                                        Continue
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </li>
+                </menu>
             </div>
             <menu className='mt-4 flex h-8 w-full flex-row items-center justify-start gap-0.5 rounded-t-sm border-b-2 border-quat bg-tert p-1 drop-shadow-md'>
                 <li className='cursor-pointer rounded-sm p-0.5 hover:bg-quat'>

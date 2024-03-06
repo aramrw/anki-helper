@@ -46,7 +46,7 @@ export default function NoteSection({ currentWorkspace, currentNote, setCurrentN
       }).catch((e) => {
         console.log(e);
       })
-  }, [currentWorkspaceObject]);
+  }, [currentWorkspaceObject, currentNote]);
 
   useEffect(() => {
     getWorkspaceByTitle();
@@ -112,7 +112,7 @@ export default function NoteSection({ currentWorkspace, currentNote, setCurrentN
                   e.preventDefault();
                   let name = inputElementRef.current?.value;
                   invoke("create_note", { title: name, workspaceId: currentWorkspaceObject.id }).then(() => {
-                    setNotes((prev) => [...prev, { id: "fake", title: name || '', workspace_id: currentWorkspaceObject.id, created_at: "fake", updated_at: "fake" }])
+                    setNotes((prev) => [...prev, { id: "fake", title: name || '', workspace_id: currentWorkspaceObject.id, save_data: '', created_at: "fake", updated_at: "fake" }])
                   }).then(() => {
                     invoke('update_user_workspace', { workspaceTitle: currentWorkspace }).catch((e) => {
                       console.log(e)
