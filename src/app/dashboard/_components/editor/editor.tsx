@@ -14,45 +14,55 @@ export default function Editor({ currentNote, setCurrentNote, workspaceId }: { c
     const [saveData, setSaveData] = useState<string>("");
     const [lastLineEdited, setLastLineEdited] = useState<string>("");
 
+    const handleOnInput = (event: FormEvent<HTMLDivElement>) => {
+        setSaveData(event.currentTarget.innerHTML)
+
+        let innerHTML = notesContainerDivRef.current?.innerHTML
+        let tempContainer = document.createElement("div");
+        if (innerHTML)
+            tempContainer.innerHTML = innerHTML;
+
+        let childNodes = Array.from(tempContainer.childNodes)
+
+        setAsTitle({ innerHtml: innerHTML, tempContainer: tempContainer, childNodes });
+        setAsBold({ innerHtml: innerHTML, tempContainer: tempContainer, childNodes });
+        setAsItalic({ innerHtml: innerHTML, tempContainer: tempContainer, childNodes })
+        setAsUnderline({ innerHtml: innerHTML, tempContainer: tempContainer, childNodes })
+    }
 
     const setCursorLastLine = () => {
-        if (notesContainerDivRef.current) {
+        const editableDiv = notesContainerDivRef.current;
+        if (editableDiv) {
             const range = document.createRange();
             const sel = window.getSelection();
-            const nodes = Array.from(notesContainerDivRef.current.childNodes);
-            let lastTextNode = null;
-
-            for (let i = nodes.length - 1; i >= 0; i--) {
-                if (nodes[i].nodeName === 'STRONG') {
-                    //console.log("node:" + nodes[i].textContent)
-                    if (nodes[i].textContent === lastLineEdited) {
-                        //console.log("its a match")
-                        lastTextNode = nodes[i].lastChild;
-                        break;
-                    }
+            const childNodes = editableDiv.childNodes;
+            if (childNodes.length > 0) {
+                const lastChild = childNodes[childNodes.length - 1];
+                if (lastChild.nodeType === Node.ELEMENT_NODE && lastChild.nodeName === 'B') {
+                    range.setStartAfter(lastChild);
+                } else {
+                    range.setStart(editableDiv, childNodes.length);
                 }
-            }
-
-            if (lastTextNode) {
-                if (lastTextNode.nodeValue)
-                    range.setStart(lastTextNode, lastTextNode.nodeValue.length);
                 range.collapse(true);
                 sel?.removeAllRanges();
                 sel?.addRange(range);
+                editableDiv.focus();
             }
         }
     }
 
+    // ** Markup Parsing ** //
+
     const setAsTitle = ({
-        innerText,
+        innerHtml,
         tempContainer,
         childNodes
     }: {
-        innerText: string | undefined,
+        innerHtml: string | undefined,
         tempContainer: HTMLDivElement
         childNodes: ChildNode[],
     }) => {
-        if (innerText?.match(/## ([\s\S]*?)(?=\n\n|$)/gm)) {
+        if (innerHtml?.match(/## ([\s\S]*?)(?=\n\n|$)/gm)) {
             // Replace lines starting with "## " with bold big version.
             if (notesContainerDivRef.current?.innerText) {
                 for (const child of childNodes) {
@@ -76,17 +86,135 @@ export default function Editor({ currentNote, setCurrentNote, workspaceId }: { c
 
     }
 
-    const handleOnInput = (event: FormEvent<HTMLDivElement>) => {
-        setSaveData(event.currentTarget.innerHTML)
-        let innerText = notesContainerDivRef.current?.innerHTML
-        let tempContainer = document.createElement("div");
-        if (innerText)
-            tempContainer.innerHTML = innerText;
-
-        let childNodes = Array.from(tempContainer.childNodes)
-
-        setAsTitle({ innerText: innerText, tempContainer: tempContainer, childNodes });
+    const setAsBold = ({
+        innerHtml,
+        tempContainer,
+        childNodes
+    }: {
+        innerHtml: string | undefined,
+        tempContainer: HTMLDivElement
+        childNodes: ChildNode[],
+    }) => {
+        if (innerHtml?.match(/\*\*[^\\p{L}*$]+?\*\*/gm)) {
+            if (notesContainerDivRef.current?.innerText) {
+                for (const child of childNodes) {
+                    if (child.nodeType === Node.TEXT_NODE) {
+                        const parts = child.textContent?.split(/(\*\*(.*?)\*\*)/g);
+                        if (parts) {
+                            const newNodes = document.createDocumentFragment();
+                            let slicedNode;
+                            for (let i = 0; i < parts.length; i++) {
+                                if (parts[i].startsWith('**') && parts[i].endsWith('**')) {
+                                    const boldNode = document.createElement('b');
+                                    boldNode.textContent = parts[i].slice(2, -2);
+                                    slicedNode = parts[i].slice(2, -2);
+                                    setLastLineEdited(boldNode.textContent);
+                                    newNodes.appendChild(boldNode);
+                                } else {
+                                    if (parts[i] === slicedNode) {
+                                        newNodes.appendChild(document.createTextNode(' \u200B')); // replace with space
+                                    } else {
+                                        newNodes.appendChild(document.createTextNode(parts[i]));
+                                    }
+                                }
+                            }
+                            child.replaceWith(newNodes);
+                        }
+                    }
+                };
+                // update state
+                notesContainerDivRef.current.innerHTML = tempContainer.innerHTML;
+                setSaveData(notesContainerDivRef.current.innerHTML)
+            }
+        }
     }
+
+    const setAsItalic = ({
+        innerHtml,
+        tempContainer,
+        childNodes
+    }: {
+        innerHtml: string | undefined,
+        tempContainer: HTMLDivElement
+        childNodes: ChildNode[],
+    }) => {
+        if (innerHtml?.match(/\_[^\\p{L}*$]+?\_/gm)) {
+            if (notesContainerDivRef.current?.innerText) {
+                for (const child of childNodes) {
+                    if (child.nodeType === Node.TEXT_NODE) {
+                        const parts = child.textContent?.split(/(\_(.*?)\_)/g);
+                        if (parts) {
+                            const newNodes = document.createDocumentFragment();
+                            let slicedNode;
+                            for (let i = 0; i < parts.length; i++) {
+                                if (parts[i].startsWith('_') && parts[i].endsWith('_')) {
+                                    const boldNode = document.createElement('i');
+                                    boldNode.textContent = parts[i].slice(1, -1);
+                                    slicedNode = parts[i].slice(1, -1);
+                                    setLastLineEdited(boldNode.textContent);
+                                    newNodes.appendChild(boldNode);
+                                } else {
+                                    if (parts[i] === slicedNode) {
+                                        newNodes.appendChild(document.createTextNode(' \u200B')); // replace with space
+                                    } else {
+                                        newNodes.appendChild(document.createTextNode(parts[i]));
+                                    }
+                                }
+                            }
+                            child.replaceWith(newNodes);
+                        }
+                    }
+                };
+                // update state
+                notesContainerDivRef.current.innerHTML = tempContainer.innerHTML;
+                setSaveData(notesContainerDivRef.current.innerHTML)
+            }
+        }
+    }
+
+    const setAsUnderline = ({
+        innerHtml,
+        tempContainer,
+        childNodes
+    }: {
+        innerHtml: string | undefined,
+        tempContainer: HTMLDivElement
+        childNodes: ChildNode[],
+    }) => {
+        if (innerHtml?.match(/\_\*.*\*\_/gm)) {
+            if (notesContainerDivRef.current?.innerText) {
+                for (const child of childNodes) {
+                    if (child.nodeType === Node.TEXT_NODE) {
+                        const parts = child.textContent?.split(/(\_\*(.*?)\*\_)/g);
+                        if (parts) {
+                            const newNodes = document.createDocumentFragment();
+                            let slicedNode;
+                            for (let i = 0; i < parts.length; i++) {
+                                if (parts[i].startsWith('_*') && parts[i].endsWith('*_')) {
+                                    const boldNode = document.createElement('ins');
+                                    boldNode.textContent = parts[i].slice(2, -2);
+                                    slicedNode = parts[i].slice(2, -2);
+                                    setLastLineEdited(boldNode.textContent);
+                                    newNodes.appendChild(boldNode);
+                                } else {
+                                    if (parts[i] === slicedNode) {
+                                        newNodes.appendChild(document.createTextNode(' \u200B')); // replace with space
+                                    } else {
+                                        newNodes.appendChild(document.createTextNode(parts[i]));
+                                    }
+                                }
+                            }
+                            child.replaceWith(newNodes);
+                        }
+                    }
+                };
+                // update state
+                notesContainerDivRef.current.innerHTML = tempContainer.innerHTML;
+                setSaveData(notesContainerDivRef.current.innerHTML)
+            }
+        }
+    }
+
 
     // insert preserved user sav data into the dom on startup
     useEffect(() => {
