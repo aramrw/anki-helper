@@ -1,6 +1,6 @@
 "use client"
 
-import React, { FormEvent, useEffect, useRef, useState } from 'react'
+import React, { FormEvent, use, useEffect, useRef, useState } from 'react'
 import { Note } from '../../dashboard'
 import { Bold, Italic, Strikethrough, Trash2, Underline } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
@@ -10,11 +10,12 @@ import { cn } from '@/lib/utils';
 import TitleTools from './_components/title-tools';
 
 export default function Editor({ currentNote, setCurrentNote, workspaceId }: { currentNote: Note, setCurrentNote: (currentNote: Note) => void, workspaceId: string | undefined }) {
-    let router = useRouter();
     const notesContainerDivRef = useRef<HTMLDivElement>(null);
     const [saveData, setSaveData] = useState<string>("");
+    const [lastLineEdited, setLastLineEdited] = useState<string>("");
 
-    const setCursorLastNode = () => {
+
+    const setCursorLastLine = () => {
         if (notesContainerDivRef.current) {
             const range = document.createRange();
             const sel = window.getSelection();
@@ -22,9 +23,13 @@ export default function Editor({ currentNote, setCurrentNote, workspaceId }: { c
             let lastTextNode = null;
 
             for (let i = nodes.length - 1; i >= 0; i--) {
-                if (nodes[i].nodeType === Node.TEXT_NODE) {
-                    lastTextNode = nodes[i];
-                    break;
+                if (nodes[i].nodeName === 'STRONG') {
+                    //console.log("node:" + nodes[i].textContent)
+                    if (nodes[i].textContent === lastLineEdited) {
+                        //console.log("its a match")
+                        lastTextNode = nodes[i].lastChild;
+                        break;
+                    }
                 }
             }
 
@@ -35,8 +40,6 @@ export default function Editor({ currentNote, setCurrentNote, workspaceId }: { c
                 sel?.removeAllRanges();
                 sel?.addRange(range);
             }
-
-            notesContainerDivRef.current.focus();
         }
     }
 
@@ -48,42 +51,42 @@ export default function Editor({ currentNote, setCurrentNote, workspaceId }: { c
         innerText: string | undefined,
         tempContainer: HTMLDivElement
         childNodes: ChildNode[],
-
     }) => {
         if (innerText?.match(/## ([\s\S]*?)(?=\n\n|$)/gm)) {
-            // Replace lines starting with "## " with bold version, handling potential HTML 
+            // Replace lines starting with "## " with bold big version.
             if (notesContainerDivRef.current?.innerText) {
-
                 for (const child of childNodes) {
+                    console.log(child.nodeName)
                     if (child.nodeType === Node.TEXT_NODE && child.textContent?.startsWith('## ')) {
+                        //console.log("node name: " + child.parentNode?.nodeName)
                         let strongNode = document.createElement('strong');
-                        strongNode.style.fontSize = "2rem"
+                        strongNode.style.fontSize = "1.8rem"
                         strongNode.textContent = child.textContent.slice(2);
+                        setLastLineEdited(strongNode.textContent);
                         child.replaceWith(strongNode);
+                        continue
                     }
                 };
 
+                // update state
                 notesContainerDivRef.current.innerHTML = tempContainer.innerHTML;
-
+                setSaveData(notesContainerDivRef.current.innerHTML)
             }
         }
 
     }
 
     const handleOnInput = (event: FormEvent<HTMLDivElement>) => {
-        setSaveData(event.currentTarget.innerText)
-        let innerText = notesContainerDivRef.current?.innerText
+        setSaveData(event.currentTarget.innerHTML)
+        let innerText = notesContainerDivRef.current?.innerHTML
         let tempContainer = document.createElement("div");
         if (innerText)
-            tempContainer.innerText = innerText;
+            tempContainer.innerHTML = innerText;
 
         let childNodes = Array.from(tempContainer.childNodes)
 
         setAsTitle({ innerText: innerText, tempContainer: tempContainer, childNodes });
     }
-
-
-
 
     // insert preserved user sav data into the dom on startup
     useEffect(() => {
@@ -94,26 +97,10 @@ export default function Editor({ currentNote, setCurrentNote, workspaceId }: { c
                 let saveData = json.save_data;
 
                 if (notesContainerDivRef.current) {
-                    notesContainerDivRef.current.innerText = saveData;
+                    notesContainerDivRef.current.innerHTML = saveData;
                 }
 
-                let innerText = notesContainerDivRef.current?.innerText;
-
-                // Replace lines starting with "## " with bold version, handling potential HTML 
-                // if (notesContainerDivRef.current?.innerText && innerText) {
-                //     const tempContainer = document.createElement('div'); // Create a temporary container
-                //     tempContainer.innerText = innerText;
-
-                //     Array.from(tempContainer.childNodes).forEach(child => {
-                //         if (child.nodeType === Node.TEXT_NODE && child.textContent?.startsWith('## ')) {
-                //             let strongNode = document.createElement('strong');
-                //             strongNode.textContent = child.textContent.slice(3);
-                //             child.replaceWith(strongNode);
-                //         }
-                //     });
-
-                //     notesContainerDivRef.current.innerHTML = tempContainer.innerHTML;
-                // }
+                //let innerText = notesContainerDivRef.current?.innerText;
 
 
             })
@@ -126,7 +113,6 @@ export default function Editor({ currentNote, setCurrentNote, workspaceId }: { c
     }, [currentNote]);
 
     useEffect(() => {
-
         if (saveData) {
             console.log("Saving Note Data: " + saveData)
             invoke("save_notes", { data: saveData, currentNoteId: currentNote.id })
@@ -141,7 +127,11 @@ export default function Editor({ currentNote, setCurrentNote, workspaceId }: { c
 
     }, [saveData]);
 
+    useEffect(() => {
 
+        setCursorLastLine();
+
+    }, [lastLineEdited]);
     return (
         <div className={cn('fixed z-0 h-full w-full bg-accent p-4 pl-9',
             notesContainerDivRef.current?.innerText && notesContainerDivRef.current?.innerText.length > 500 && "overflow-auto"

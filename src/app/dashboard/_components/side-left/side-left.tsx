@@ -46,7 +46,6 @@ export default function SideLeft({ currentNote, setCurrentNote }: { currentNote:
     }, [updateUserWorkspace])
 
 
-
     return (
         <motion.section className={cn('z-10 w-auto ml-10 pl-3.5 flex h-full flex-row-reverse bg-background shadow-md border-r-2 border-sec',
             isDragging && "cursor-grabbing"

@@ -70,7 +70,10 @@ export default function TitleTools({
                     </DialogTrigger>
                     <DialogContent className="rounded-sm sm:max-w-[425px]">
                         <DialogHeader>
-                            <DialogTitle className='font-bold'>Rename Note</DialogTitle>
+                            <DialogTitle className='flex flex-row gap-1.5 font-bold'>
+                                <PencilLine size={20} className='drop-shadow-md' />
+                                Rename Note
+                            </DialogTitle>
                             <DialogDescription className=''>
                                 Rename your current note to something else.
                                 <br />
