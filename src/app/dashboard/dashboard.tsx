@@ -36,7 +36,6 @@ export default function Dashboard() {
         setCurrentNote(currentNote)
     }
 
-
     useEffect(() => {
         invoke("get_user").then((res) => {
             let user: User[] = JSON.parse(res as string)

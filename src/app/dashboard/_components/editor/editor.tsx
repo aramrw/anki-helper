@@ -12,7 +12,7 @@ import TitleTools from './_components/title-tools';
 export default function Editor({ currentNote, setCurrentNote, workspaceId }: { currentNote: Note, setCurrentNote: (currentNote: Note) => void, workspaceId: string | undefined }) {
     const notesContainerDivRef = useRef<HTMLDivElement>(null);
     const [saveData, setSaveData] = useState<string>("");
-    const [lastLineEdited, setLastLineEdited] = useState<string>("");
+    const [lastLineEdited, setLastLineEdited] = useState<string | undefined>(undefined);
 
     const handleOnInput = (event: FormEvent<HTMLDivElement>) => {
         setSaveData(event.currentTarget.innerHTML)
@@ -95,7 +95,7 @@ export default function Editor({ currentNote, setCurrentNote, workspaceId }: { c
         tempContainer: HTMLDivElement
         childNodes: ChildNode[],
     }) => {
-        if (innerHtml?.match(/\*\*[^\\p{L}*$]+?\*\*/gm)) {
+        if (innerHtml?.match(/\*\*.*?\*\*/gm)) {
             if (notesContainerDivRef.current?.innerText) {
                 for (const child of childNodes) {
                     if (child.nodeType === Node.TEXT_NODE) {
@@ -138,7 +138,7 @@ export default function Editor({ currentNote, setCurrentNote, workspaceId }: { c
         tempContainer: HTMLDivElement
         childNodes: ChildNode[],
     }) => {
-        if (innerHtml?.match(/\_[^\\p{L}*$]+?\_/gm)) {
+        if (innerHtml?.match(/\_.*?\_/gm)) {
             if (notesContainerDivRef.current?.innerText) {
                 for (const child of childNodes) {
                     if (child.nodeType === Node.TEXT_NODE) {
@@ -181,7 +181,7 @@ export default function Editor({ currentNote, setCurrentNote, workspaceId }: { c
         tempContainer: HTMLDivElement
         childNodes: ChildNode[],
     }) => {
-        if (innerHtml?.match(/\_\*.*\*\_/gm)) {
+        if (innerHtml?.match(/\_\*.*?\*\_/gm)) {
             if (notesContainerDivRef.current?.innerText) {
                 for (const child of childNodes) {
                     if (child.nodeType === Node.TEXT_NODE) {
@@ -214,7 +214,6 @@ export default function Editor({ currentNote, setCurrentNote, workspaceId }: { c
             }
         }
     }
-
 
     // insert preserved user sav data into the dom on startup
     useEffect(() => {
@@ -256,10 +255,13 @@ export default function Editor({ currentNote, setCurrentNote, workspaceId }: { c
     }, [saveData]);
 
     useEffect(() => {
-
-        setCursorLastLine();
+        if (lastLineEdited && lastLineEdited !== "") {
+            setCursorLastLine();
+            setLastLineEdited(undefined);
+        }
 
     }, [lastLineEdited]);
+
     return (
         <div className={cn('fixed z-0 h-full w-full bg-accent p-4 pl-9',
             notesContainerDivRef.current?.innerText && notesContainerDivRef.current?.innerText.length > 500 && "overflow-auto"
@@ -282,7 +284,7 @@ export default function Editor({ currentNote, setCurrentNote, workspaceId }: { c
                     <Underline size={17} strokeWidth={3.1} />
                 </li>
             </menu>
-            <div className='h-full w-full bg-background drop-shadow-lg' >
+            <div className='mb-4 h-fit w-full bg-background drop-shadow-lg' >
                 <div contentEditable className='inline-block h-full w-full px-5 py-4 outline-none'
                     onInput={handleOnInput} ref={notesContainerDivRef} >
 

@@ -8,11 +8,9 @@ import { invoke } from '@tauri-apps/api/core';
 import { Separator } from '@/components/ui/separator';
 import NoteSection from './note-section';
 import { Note } from '../../dashboard';
-import { useRouter } from 'next/navigation';
 
 export default function SideLeft({ currentNote, setCurrentNote }: { currentNote: string | undefined, setCurrentNote: (value: Note) => void }) {
     const [currentWorkspace, setCurrentWorkspace] = useState<string>("");
-    let router = useRouter();
     const [isDragging, setIsDragging] = useState(false);
     const [isHovering, setIsHovering] = useState(false);
     const controls = useDragControls();
