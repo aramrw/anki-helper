@@ -89,7 +89,8 @@ fn main() {
             get_note_by_title,
             save_notes,
             get_note_save_data,
-            delete_note
+            delete_note,
+            rename_note
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -314,7 +315,7 @@ async fn save_notes(
 
     // let json_data = to_string_pretty(&data).unwrap();
 
-    // println!("{}", &json_data);
+    //println!("Saving: {} to ID: {}", data, current_note_id);
 
     sqlx::query("UPDATE note SET saveData = ?, updatedAt = datetime('now') WHERE id = ?")
         .bind(&data)
@@ -333,6 +334,19 @@ async fn delete_note(handle: AppHandle, current_note_id: String) {
 
     sqlx::query("DELETE FROM note WHERE id = ?")
         .bind(current_note_id)
+        .execute(&*pool)
+        .await
+        .unwrap();
+}
+
+#[command]
+async fn rename_note(handle: AppHandle, current_note_id: String, new_title: String) {
+    let pool_mutex = handle.state::<Mutex<SqlitePool>>();
+    let pool = pool_mutex.lock().await;
+
+    sqlx::query("UPDATE note SET title = ?, updatedAt = datetime('now') WHERE id = ?")
+        .bind(&new_title)
+        .bind(&current_note_id)
         .execute(&*pool)
         .await
         .unwrap();

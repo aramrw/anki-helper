@@ -73,7 +73,7 @@ export default function NoteSection({ currentWorkspace, currentNote, setCurrentN
 
   if (currentWorkspace !== "" && currentWorkspace !== "none") {
     return (
-      <div className='flex items-center justify-end'>
+      <div className='mr-0.5 flex items-center justify-end'>
         <Command className="w-[10.8rem] rounded-sm border shadow-md">
           <CommandInput placeholder="Find Notes..." className='h-9 font-medium' />
           <CommandList>
@@ -112,17 +112,20 @@ export default function NoteSection({ currentWorkspace, currentNote, setCurrentN
                   e.preventDefault();
                   let name = inputElementRef.current?.value;
                   invoke("create_note", { title: name, workspaceId: currentWorkspaceObject.id }).then(() => {
-                    setNotes((prev) => [...prev, { id: "fake", title: name || '', workspace_id: currentWorkspaceObject.id, save_data: '', created_at: "fake", updated_at: "fake" }])
+                    invoke("update_user_note", { title: name }).then(() => {
+                      invoke("get_note_by_title", { currentNote: name }).then((res) => {
+                        let createdNote: Note = JSON.parse(res as string);
+                        setCurrentNote({ id: createdNote.id, title: createdNote.title, workspace_id: currentWorkspaceObject.id, save_data: '', created_at: "fake", updated_at: "fake" })
+                        setNotes((prev) => [...prev, { id: createdNote.id, title: createdNote.title, workspace_id: currentWorkspaceObject.id, save_data: '', created_at: "fake", updated_at: "fake" }])
+                      })
+                    })
                   }).then(() => {
                     invoke('update_user_workspace', { workspaceTitle: currentWorkspace }).catch((e) => {
                       console.log(e)
                     });
-                  }).finally(() => {
-                    invoke("update_user_note", { title: name })
-                  })
-                    .catch((e) => {
-                      console.log(e)
-                    });
+                  }).catch((e) => {
+                    console.log(e)
+                  });
                   setShowInputBox(false);
                 }
               }}
